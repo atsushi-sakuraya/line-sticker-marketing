@@ -1,0 +1,40 @@
+name: publish-queue
+
+on:
+  schedule:
+    # 毎時（UTC）。承認済みで4時間以内に予定された投稿を Buffer に予約する
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "1 = Bufferに送らず確認だけ"
+        default: "0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-queue
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Japanese font
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
+      - run: pip install -r requirements.txt
+      - name: Publish
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DB_ID: ${{ vars.NOTION_DB_ID }}
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_CHANNEL_X: ${{ vars.BUFFER_CHANNEL_X }}
+          BUFFER_CHANNEL_INSTAGRAM: ${{ vars.BUFFER_CHANNEL_INSTAGRAM }}
+          BUFFER_CHANNEL_THREADS: ${{ vars.BUFFER_CHANNEL_THREADS }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+        run: python scripts/publish.py
